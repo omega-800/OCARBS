@@ -45,11 +45,17 @@ OCARBS will parse the given programs list and install all given programs. Note
 that the programs file must be a three column `.csv`.
 
 The first column is a "tag" that determines how the program is installed, ""
-(blank) for the main repository, `A` for via the AUR or `G` if the program is a
-git repository that is meant to be `make && sudo make install`ed.
+(blank) for the main repository, `A` for via the AUR, `G` if the program is a
+git repository that is meant to be `make && sudo make install`ed, `P` if the 
+program is meant to be installed through pip and lastly `X` if the program 
+shouldn't be installed at all but simply run as a service (as explained below).
 
-The second column is the name of the program in the repository, or the link to
-the git repository, and the third column is a description (should be a verb
+The second column is a "tag" that determines if the program is a service and if so, 
+how it should be run. "" (blank) for no service, `U` for --user or `S` if 
+the program should be run as a "normal" system service..
+
+The third column is the name of the program in the repository, or the link to
+the git repository, and the fourth column is a description (should be a verb
 phrase) that describes the program. During installation, OCARBS will print out
 this information in a grammatical sentence. It also doubles as documentation
 for people who read the CSV and want to install my dotfiles manually.

@@ -115,26 +115,25 @@ Include = /etc/pacman.d/mirrorlist-arch" >>/etc/pacman.conf
 	esac
 }
 
-enablekeyd() {
-    ! [ -d "/etc/keyd" ] && mkdir /etc/keyd
-    ln -sf /home/$name/.config/keyd/default.conf /etc/keyd/default.conf
+enableservice() {
+    ! [ -d "/etc/$1" ] && mkdir "/etc/$1"
+    ln -sf /home/$name/.config/$1/default.conf /etc/$1/default.conf
     case "$(readlink -f /sbin/init)" in
-	*systemd*)
-                systemctl enable keyd ;;
-	*runit*)
-                servicesdir="/etc/runit/sv"
-                keydservice="$servicesdir/keyd"
-                [ -d "$keydservice" ] && return 1
-                mkdir $keydservice
-                echo '#!/bin/sh\nexec keyd' > "$keydservice/run"
-                chmod u+x "$keydservice/run"
-                ln -s /etc/runit/sv/keyd /run/runit/service ;;
-        *dinit*)
-                printf 'type            = process\ncommand         = /usr/bin/keyd' > /etc/dinit.d/keyd
-                dinitctl enable keyd
-                dinitctl start keyd
-                ;;
-    *)
+      *systemd*)
+        systemctl enable "$1" ;;
+      *runit*)
+        service="/etc/runit/sv/$servicesdir/$1"
+        [ -d "$service" ] && return 1
+        mkdir $service
+        echo '#!/bin/sh\nexec $1' > "$service/run"
+        chmod u+x "$service/run"
+        ln -s /etc/runit/sv/$1 /run/runit/service ;;
+      *dinit*)
+        printf "type            = process\ncommand         = /usr/bin/$1" > /etc/dinit.d/$1
+        dinitctl enable "$1"
+        dinitctl start "$1"
+        ;;
+      *)
         echo "No compatible init system detected. Feel free to make a pull request"
         ;;
     esac
