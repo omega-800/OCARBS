@@ -6,12 +6,24 @@
 
 ### OPTIONS AND VARIABLES ###
 
-dotfilesrepo="https://github.com/omega-800/nixos-config"
+dotfilesrepo=""
+nixrepo="https://github.com/omega-800/nixos-config"
 progsfile="https://raw.githubusercontent.com/omega-800/OCARBS/master/static/progs.csv"
 aurhelper="yay"
 repobranch="master"
 wantkeyd=true
 export TERM=ansi
+
+rssurls="https://lukesmith.xyz/rss.xml
+https://videos.lukesmith.xyz/feeds/videos.xml?videoChannelId=2 \"~Luke Smith (Videos)\"
+https://www.youtube.com/feeds/videos.xml?channel_id=UC2eYFnH61tmytImy1mTYvhA \"~Luke Smith (YouTube)\"
+https://lindypress.net/rss
+https://notrelated.xyz/rss
+https://landchad.net/rss.xml
+https://based.cooking/index.xml
+https://artixlinux.org/feed.php \"tech\"
+https://www.archlinux.org/feeds/news/ \"tech\"
+https://github.com/LukeSmithxyz/voidrice/commits/master.atom \"~LARBS dotfiles\""
 
 ### FUNCTIONS ###
 
@@ -63,6 +75,23 @@ keydsetupask() {
 
 }
 
+sysconfig() {
+  # timezone
+  tz=$(whiptail --inputbox "Please enter timezone (eg. Europe/Zurich)" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
+  ln -sf "/usr/share/zoneinfo/$tz" /etc/localtime
+  # locale
+  loc=$(whiptail --inputbox "Please enter locale (eg. C.UTF-8)" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
+  sed -i "s/#$loc/$loc" /etc/locale.gen
+  locale-gen
+  echo "LANG=$loc" > /etc/locale.conf
+  # keyboard layout
+  kb=$(whiptail --inputbox "Please enter a kb variant (eg. de_CH-latin1)" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
+  echo "KEYMAP=$kb" > /etc/vconsole.conf
+  # hostname
+	hostname=$(whiptail --inputbox "Please enter hostname" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
+  echo "$hostname" > /etc/hostname
+}
+
 preinstallmsg() {
 	whiptail --title "Let's get this party started!" --yes-button "Let's go!" \
 		--no-button "No, nevermind!" \
@@ -82,6 +111,15 @@ adduserandpass() {
 	chown -R "$name":wheel "$(dirname "$repodir")"
 	echo "$name:$pass1" | chpasswd
 	unset pass1 pass2
+
+  sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
+  sudo -u "$name" mkdir -p "/home/$name/.config/mpd/playlists/"
+  sudo -u "$name" mkdir -p "/home/$name/documents/img/screenshots"
+  sudo -u "$name" mkdir -p "/home/$name/documents/vid/screenrecordings"
+  sudo -u "$name" mkdir -p "/home/$name/workspace/personal"
+  sudo -u "$name" mkdir -p "/home/$name/workspace/work"
+  sudo -u "$name" mkdir -p "/home/$name/.local/share/gnupg"
+  chmod 0600 "/home/$name/.local/share/gnupg" # since we change $GNUPGHOME to this path we need to have this folder created or else we encounter errors when getting packages from aur 
 }
 
 refreshkeys() {
@@ -119,8 +157,13 @@ enableservice() {
     ! [ -d "/etc/$1" ] && mkdir "/etc/$1"
     ln -sf /home/$name/.config/$1/default.conf /etc/$1/default.conf
     case "$(readlink -f /sbin/init)" in
-      *systemd*)
-        systemctl enable "$1" ;;
+      *systemd*) 
+        if [ "$2" = U ]; then
+            systemctl --user -M $name@ enable "$1"
+        else
+            systemctl enable "$1"
+        fi
+        ;;
       *runit*)
         service="/etc/runit/sv/$servicesdir/$1"
         [ -d "$service" ] && return 1
@@ -137,6 +180,30 @@ enableservice() {
         echo "No compatible init system detected. Feel free to make a pull request"
         ;;
     esac
+}
+
+nixinstall() {
+  whiptail --title "OCARBS Installation" \
+    --infobox "Installing NIX which is required to install and configure other programs." 8 70
+  sh <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"
+
+  whiptail --title "OCARBS Installation" \
+    --infobox "Installing NIX home-manager which is required to install and configure other programs." 8 70
+  sudo -u $name nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager || error "Failed to add home-manager repo"
+  sudo -u $name nix-channel --update || error "Failed to update nix-channel"
+  sudo -u $name nix-shell '<home-manager>' -A install || error "Failed to install home-manager"
+
+  whiptail --title "OCARBS Installation" \
+    --infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
+  ntpd -q -g >/dev/null 2>&1
+
+  $nixcfgpath="/home/$name/workspace/nixos-config"
+  $hostcfg="$nixcfgpath/hosts/$hostname"
+  sudo --user $name git clone $nixrepo $nixcfgpath
+  sudo --user $name cp -r $nixcfgpath/hosts/generic-template $hostcfg
+  sed -i "s/setnewhostname/$hostname/" $hostcfg/config.nix
+
+  sudo --user $name home-manager switch --flake "$nixcfgpath#$hostname" --extra-experimental-features nix-command --extra-experimental-features flakes
 }
 
 manualinstall() {
@@ -262,19 +329,10 @@ preinstallmsg || error "User exited."
 
 ### The rest of the script requires no user input.
 
+sysconfig || error "User exited."
+
 # Refresh Arch keyrings.
-refreshkeys ||
-	error "Error automatically refreshing Arch keyring. Consider doing so manually."
-
-for x in curl ca-certificates base-devel git ntp zsh; do
-	whiptail --title "OCARBS Installation" \
-		--infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
-	installpkg "$x"
-done
-
-whiptail --title "OCARBS Installation" \
-	--infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
-ntpd -q -g >/dev/null 2>&1
+refreshkeys || error "Error automatically refreshing Arch keyring. Consider doing so manually."
 
 adduserandpass || error "Error adding username and/or password."
 
@@ -291,6 +349,13 @@ sed -Ei "s/^#(ParallelDownloads).*/\1 = 5/;/^#Color$/s/#//" /etc/pacman.conf
 
 # Use all cores for compilation.
 sed -i "s/-j2/-j$(nproc)/;/^#MAKEFLAGS/s/^#//" /etc/makepkg.conf
+for x in curl ca-certificates base-devel git ntp zsh; do
+	whiptail --title "OCARBS Installation" \
+		--infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
+	installpkg "$x"
+done
+
+nixinstall
 
 manualinstall $aurhelper || error "Failed to install AUR helper."
 
@@ -300,18 +365,11 @@ manualinstall $aurhelper || error "Failed to install AUR helper."
 # and all build dependencies are installed.
 installationloop
 
-sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
-sudo -u "$name" mkdir -p "/home/$name/.config/mpd/playlists/"
-sudo -u "$name" mkdir -p "/home/$name/documents/img/screenshots"
-sudo -u "$name" mkdir -p "/home/$name/documents/vid/screenrecordings"
-sudo -u "$name" mkdir -p "/home/$name/workspace/personal"
-sudo -u "$name" mkdir -p "/home/$name/workspace/work"
-sudo -u "$name" mkdir -p "/home/$name/.local/share/gnupg"
-chmod 0600 "/home/$name/.local/share/gnupg" # since we change $GNUPGHOME to this path we need to have this folder created or else we encounter errors when getting packages from aur 
-
-# Install the dotfiles in the user's home directory, don't remove the .git folder
-# cause it might be useful for updates but uninstall other unnecessary files.
-putgitrepo "$dotfilesrepo" "/home/$name/workspace/nixos-config" "$repobranch"
+# Install the dotfiles in the user's home directory, but remove .git dir and
+# other unnecessary files.
+[ -n "$dotfilesrepo" ] && putgitrepo "$dotfilesrepo" "/home/$name" "$repobranch"
+echo "$rssurls" > "/home/$name/.config/newsboat/urls"
+rm -rf "/home/$name/.git/" "/home/$name/README.md" "/home/$name/LICENSE" "/home/$name/FUNDING.yml"
 
 # Most important command! Get rid of the beep!
 rmmod pcspkr
