@@ -1,18 +1,17 @@
 #!/bin/sh
 
-# OMEGA's Custom Auto Rice Boostrapping Script based off MARBS based off LARBS
+# OMEGA's Custom Auto Rice Boostrapping Script based off OCARBS based off LARBS
 # by OMEGA, Mariusz Kuchta, Luke Smith and contributors of the FOSS community
 # License: GNU GPLv3
 
 ### OPTIONS AND VARIABLES ###
 
-dotfilesrepo="https://github.com/kuchteq/wayrice.git"
-progsfile="https://raw.githubusercontent.com/Kuchteq/MARBS/master/static/progs.csv"
-aurhelper="paru"
+dotfilesrepo="https://github.com/omega-800/nixos-config"
+progsfile="https://raw.githubusercontent.com/omega-800/OCARBS/master/static/progs.csv"
+aurhelper="yay"
 repobranch="master"
-wantkeyd=false
+wantkeyd=true
 export TERM=ansi
-
 
 ### FUNCTIONS ###
 
@@ -28,7 +27,7 @@ error() {
 
 welcomemsg() {
 	whiptail --title "Welcome!" \
-		--msgbox "Welcome to Mariusz's Auto-Rice Bootstrapping Script!\\n\\nThis script will automatically install a fully-featured Linux desktop, which I use as my main machine.\\n\\n-Mariusz" 10 60
+		--msgbox "Welcome to OMEGA's Custom Auto-Rice Bootstrapping Script!\\n\\nThis script will automatically install a fully-featured Linux desktop, which I use as my main machine.\\n\\n-Mariusz" 10 60
 
 	whiptail --title "Important Note!" --yes-button "All ready!" \
 		--no-button "Return..." \
@@ -54,7 +53,7 @@ usercheck() {
 	! { id -u "$name" >/dev/null 2>&1; } ||
 		whiptail --title "WARNING" --yes-button "CONTINUE" \
 			--no-button "No wait..." \
-			--yesno "The user \`$name\` already exists on this system. MARBS can install for a user already existing, but it will OVERWRITE any conflicting settings/dotfiles on the user account.\\n\\nMARBS will NOT overwrite your user files, documents, videos, etc., so don't worry about that, but only click <CONTINUE> if you don't mind your settings being overwritten.\\n\\nNote also that MARBS will change $name's password to the one you just gave." 14 70
+			--yesno "The user \`$name\` already exists on this system. OCARBS can install for a user already existing, but it will OVERWRITE any conflicting settings/dotfiles on the user account.\\n\\nOCARBS will NOT overwrite your user files, documents, videos, etc., so don't worry about that, but only click <CONTINUE> if you don't mind your settings being overwritten.\\n\\nNote also that OCARBS will change $name's password to the one you just gave." 14 70
 }
 
 keydsetupask() {
@@ -115,6 +114,7 @@ Include = /etc/pacman.d/mirrorlist-arch" >>/etc/pacman.conf
 		;;
 	esac
 }
+
 enablekeyd() {
     ! [ -d "/etc/keyd" ] && mkdir /etc/keyd
     ln -sf /home/$name/.config/keyd/default.conf /etc/keyd/default.conf
@@ -139,6 +139,7 @@ enablekeyd() {
         ;;
     esac
 }
+
 manualinstall() {
 	# Installs $1 manually. Used for AUR helper as well as
 	# custom user programs
@@ -165,7 +166,7 @@ manualinstall() {
 
 maininstall() {
 	# Installs all needed programs from main repo.
-	whiptail --title "MARBS Installation" --infobox "Installing \`$1\` ($n of $total). $1 $2" 9 70
+	whiptail --title "OCARBS Installation" --infobox "Installing \`$1\` ($n of $total). $1 $2" 9 70
 	installpkg "$1"
 }
 
@@ -173,7 +174,7 @@ gitmakeinstall() {
 	progname="${1##*/}"
 	progname="${progname%.git}"
 	dir="$repodir/$progname"
-	whiptail --title "MARBS Installation" \
+	whiptail --title "OCARBS Installation" \
 		--infobox "Installing \`$progname\` ($n of $total) via \`git\` and \`make\`. $(basename "$1") $2" 8 70
 	sudo -u "$name" git -C "$repodir" clone --depth 1 --single-branch \
 		--no-tags -q "$1" "$dir" ||
@@ -188,14 +189,14 @@ gitmakeinstall() {
 }
 
 aurinstall() {
-	whiptail --title "MARBS Installation" \
+	whiptail --title "OCARBS Installation" \
 		--infobox "Installing \`$1\` ($n of $total) from the AUR. $1 $2" 9 70
 	echo "$aurinstalled" | grep -q "^$1$" && return 1
 	sudo -u "$name" $aurhelper -S --noconfirm "$1" >/dev/null 2>&1
 }
 
 pipinstall() {
-	whiptail --title "MARBS Installation" \
+	whiptail --title "OCARBS Installation" \
 		--infobox "Installing the Python package \`$1\` ($n of $total). $1 $2" 9 70
 	[ -x "$(command -v "pip")" ] || installpkg python-pip >/dev/null 2>&1
 	yes | pip install "$1"
@@ -233,32 +234,6 @@ putgitrepo() {
 	sudo -u "$name" cp -rfT "$dir" "$2"
 }
 
-installffaddons(){
-	addonlist="tridactyl-vim localcdn-fork-of-decentraleyes istilldontcareaboutcookies libredirect darkreader"
-	addontmp="$(mktemp -d)"
-	trap "rm -fr $addontmp" HUP INT QUIT TERM PWR EXIT
-	IFS=' '
-	sudo -u "$name" mkdir -p "$pdir/extensions/"
-	for addon in $addonlist; do
-		addonurl="$(curl --silent "https://addons.mozilla.org/en-US/firefox/addon/${addon}/" | grep -o 'https://addons.mozilla.org/firefox/downloads/file/[^"]*')"
-		file="${addonurl##*/}"
-		sudo -u "$name" curl -LOs "$addonurl" > "$addontmp/$file"
-		id="$(unzip -p "$file" manifest.json | grep "\"id\"")"
-		id="${id%\"*}"
-		id="${id##*\"}"
-		sudo -u "$name" mv "$file" "$pdir/extensions/$id.xpi"
-	done
-}
-
-installdefaultwallpapers() {
-	wallpaperspath="/home/$name/Pictures/Wallpapers"
-	sudo -u "$name" mkdir -p "$wallpaperspath"
-	sudo -u "$name" curl -Ls "https://marbs.kuchta.dev/wallpapers/wallpaper_dark.jpg" > "$wallpaperspath/wallpaper_dark.jpg"
-	sudo -u "$name" curl -Ls "https://marbs.kuchta.dev/wallpapers/wallpaper_light.jpg" > "$wallpaperspath/wallpaper_light.jpg"
-	sudo -u "$name" curl -Ls "https://marbs.kuchta.dev/wallpapers/lock_wallpaper_light.jpg" > "$wallpaperspath/lock_wallpaper_light.jpg"
-	sudo -u "$name" curl -Ls "https://marbs.kuchta.dev/wallpapers/lock_wallpaper_dark.jpg" > "$wallpaperspath/lock_wallpaper_dark.jpg"
-}
-
 finalize() {
 	whiptail --title "All done!" \
 		--msgbox "Congrats! Provided there were no hidden errors, the script completed successfully and all the programs and configuration files should be in place.\\n\\nTo run the new graphical environment, log out and log back in as your new user, then run the command \"startw\" to start the graphical environment (it will start automatically in tty1).\\n\\n.t Luke" 13 80
@@ -293,12 +268,12 @@ refreshkeys ||
 	error "Error automatically refreshing Arch keyring. Consider doing so manually."
 
 for x in curl ca-certificates base-devel git ntp zsh; do
-	whiptail --title "MARBS Installation" \
+	whiptail --title "OCARBS Installation" \
 		--infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
 	installpkg "$x"
 done
 
-whiptail --title "MARBS Installation" \
+whiptail --title "OCARBS Installation" \
 	--infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
 ntpd -q -g >/dev/null 2>&1
 
@@ -326,11 +301,18 @@ manualinstall $aurhelper || error "Failed to install AUR helper."
 # and all build dependencies are installed.
 installationloop
 
+sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
+sudo -u "$name" mkdir -p "/home/$name/.config/mpd/playlists/"
+sudo -u "$name" mkdir -p "/home/$name/documents/img/screenshots"
+sudo -u "$name" mkdir -p "/home/$name/documents/vid/screenrecordings"
+sudo -u "$name" mkdir -p "/home/$name/workspace/personal"
+sudo -u "$name" mkdir -p "/home/$name/workspace/work"
+sudo -u "$name" mkdir -p "/home/$name/.local/share/gnupg"
+chmod 0600 "/home/$name/.local/share/gnupg" # since we change $GNUPGHOME to this path we need to have this folder created or else we encounter errors when getting packages from aur 
+
 # Install the dotfiles in the user's home directory, don't remove the .git folder
 # cause it might be useful for updates but uninstall other unnecessary files.
-putgitrepo "$dotfilesrepo" "/home/$name" "$repobranch"
-rm -rf "/home/$name/README.md" "/home/$name/LICENSE" "/home/$name/FUNDING.yml"
-
+putgitrepo "$dotfilesrepo" "/home/$name/workspace/nixos-config" "$repobranch"
 
 # Most important command! Get rid of the beep!
 rmmod pcspkr
@@ -338,18 +320,9 @@ echo "blacklist pcspkr" >/etc/modprobe.d/nobeep.conf
 
 # Make zsh the default shell for the user and set up folders which the system would usually expect.
 chsh -s /bin/zsh "$name" >/dev/null 2>&1
-sudo -u "$name" mkdir -p "/home/$name/.cache/zsh/"
-sudo -u "$name" mkdir -p "/home/$name/.config/abook/"
-sudo -u "$name" mkdir -p "/home/$name/.config/mpd/playlists/"
-sudo -u "$name" mkdir -p "/home/$name/Pictures/Screenshots"
-sudo -u "$name" mkdir -p "/home/$name/Videos/Screenrecordings"
-sudo -u "$name" mkdir -p "/home/$name/.local/share/gnupg"
-chmod 0600 "/home/$name/.local/share/gnupg" # since we change $GNUPGHOME to this path we need to have this folder created or else we encounter errors when getting packages from aur 
 
 echo "source /home/$name/.config/zsh/.zshrc" > /root/.zshrc
 echo 'PS1="%B%{$fg[red]%}[%{$fg[red]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[yellow]%}%~%{$fg[red]%}]%{$reset_color%}#%b "' >> /root/.zshrc
-
-installdefaultwallpapers
 
 # dbus UUID must be generated for Artix runit.
 dbus-uuidgen >/var/lib/dbus/machine-id
@@ -358,7 +331,6 @@ dbus-uuidgen >/var/lib/dbus/machine-id
 echo "export \$(dbus-launch)" >/etc/profile.d/dbus.sh
 
 # All this below to get Librewolf installed with add-ons and non-bad settings.
-
 whiptail --infobox "Setting browser privacy settings and add-ons..." 7 60
 
 browserdir="/home/$name/.librewolf"
@@ -377,13 +349,11 @@ pkill -u "$name" librewolf
 
 [ "$wantkeyd" = true ] && enablekeyd
 
-
-#
 # Allow wheel users to sudo with password and allow several system commands
 # (like `shutdown` to run without password).
-echo "%wheel ALL=(ALL:ALL) ALL" >/etc/sudoers.d/00-marbs-wheel-can-sudo
-echo "%wheel ALL=(ALL:ALL) NOPASSWD: /usr/bin/shutdown,/usr/bin/reboot,/usr/bin/systemctl suspend,/usr/bin/wifi-menu,/usr/bin/mount,/usr/bin/umount,/usr/bin/pacman -Syu,/usr/bin/pacman -Syyu,/usr/bin/pacman -Syyu --noconfirm,/usr/bin/loadkeys,/usr/bin/pacman -Syyuw --noconfirm,/usr/bin/pacman -S -u -y --config /etc/pacman.conf --,/usr/bin/pacman -S -y -u --config /etc/pacman.conf --" >/etc/sudoers.d/01-marbs-cmds-without-password
-echo "Defaults editor=/usr/bin/nvim" >/etc/sudoers.d/02-marbs-visudo-editor
+echo "%wheel ALL=(ALL:ALL) ALL" >/etc/sudoers.d/00-ocarbs-wheel-can-sudo
+echo "%wheel ALL=(ALL:ALL) NOPASSWD: /usr/bin/shutdown,/usr/bin/reboot,/usr/bin/systemctl suspend,/usr/bin/wifi-menu,/usr/bin/mount,/usr/bin/umount,/usr/bin/pacman -Syu,/usr/bin/pacman -Syyu,/usr/bin/pacman -Syyu --noconfirm,/usr/bin/loadkeys,/usr/bin/pacman -Syyuw --noconfirm,/usr/bin/pacman -S -u -y --config /etc/pacman.conf --,/usr/bin/pacman -S -y -u --config /etc/pacman.conf --" >/etc/sudoers.d/01-ocarbs-cmds-without-password
+echo "Defaults editor=/usr/bin/nvim" >/etc/sudoers.d/02-ocarbs-visudo-editor
 mkdir -p /etc/sysctl.d
 echo "kernel.dmesg_restrict = 0" > /etc/sysctl.d/dmesg.conf
 
