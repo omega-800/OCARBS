@@ -195,7 +195,7 @@ nixinstall() {
   [ -e /etc/bash.bashrc.backup-before-nix ] && rm /etc/bash.bashrc.backup-before-nix
   whiptail --title "OCARBS Installation" \
     --infobox "Installing NIX which is required to install and configure other programs." 8 70
-  sudo -u $name sh <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"
+  sudo -iu $name sh <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"
 
   whiptail --title "OCARBS Installation" \
     --infobox "Installing NIX home-manager which is required to install and configure other programs." 8 70
