@@ -195,7 +195,7 @@ nixinstall() {
   [ -e /etc/bash.bashrc.backup-before-nix ] && rm /etc/bash.bashrc.backup-before-nix
   whiptail --title "OCARBS Installation" \
     --infobox "Installing NIX which is required to install and configure other programs." 8 70
-  sudo -iu $name sh <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"
+  sudo bash <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"
 
   whiptail --title "OCARBS Installation" \
     --infobox "Installing NIX home-manager which is required to install and configure other programs." 8 70
@@ -437,6 +437,15 @@ XDG_BIN_HOME=$HOME/.local/bin
 EDITOR=nvim
 MOZ_ENABLE_WAYLAND=1
 " >> /etc/profile
+echo "
+Section \"InputClass\"
+    Identifier \"touchpad\"
+    Driver \"libinput\"
+    MatchIsTouchpad \"on\"
+    Option \"Tapping\" \"on\"
+    Option \"TappingButtonMap\" \"lmr\"
+EndSection
+" > /etc/X11/xorg.conf.d/30-touchpad.conf
 # harden the system a bit
 [ -e hardening.sh ] || curl -LO https://raw.githubusercontent.com/omega-800/OCARBS/main/static/hardening.sh
 [ -x hardening.sh ] || chmod +x hardening.sh
