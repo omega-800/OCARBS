@@ -87,18 +87,19 @@ capslock = backspace
 sysconfig() {
   # timezone
   tz=$(whiptail --inputbox "Please enter timezone (eg. Europe/Zurich)" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
-  ln -sf "/usr/share/zoneinfo/$tz" /etc/localtime
+  ln -sf "/usr/share/zoneinfo/${tz:-Europe/Zurich}" /etc/localtime
   # locale
-  loc=$(whiptail --inputbox "Please enter locale (eg. C.UTF-8)" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
+  locale=$(whiptail --inputbox "Please enter locale (eg. C.UTF-8)" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
+  loc="${locale:-en_US.UTF-8}"
   sed -i "s/#$loc/$loc" /etc/locale.gen
   locale-gen
   echo "LANG=$loc" > /etc/locale.conf
   # keyboard layout
   kb=$(whiptail --inputbox "Please enter a kb variant (eg. de_CH-latin1)" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
-  echo "KEYMAP=$kb" > /etc/vconsole.conf
+  echo "KEYMAP=${kb:-de_CH-latin1}" > /etc/vconsole.conf
   # hostname
 	hostname=$(whiptail --inputbox "Please enter hostname" 10 60 3>&1 1>&2 2>&3 3>&1) || exit 1
-  echo "$hostname" > /etc/hostname
+  echo "${hostname:-archie}" > /etc/hostname
 }
 
 preinstallmsg() {
@@ -194,13 +195,13 @@ nixinstall() {
   [ -e /etc/bash.bashrc.backup-before-nix ] && rm /etc/bash.bashrc.backup-before-nix
   whiptail --title "OCARBS Installation" \
     --infobox "Installing NIX which is required to install and configure other programs." 8 70
-  sh <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"
+  sudo -u $name sh <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"
 
   whiptail --title "OCARBS Installation" \
     --infobox "Installing NIX home-manager which is required to install and configure other programs." 8 70
-  sudo -u $name nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager || error "Failed to add home-manager repo"
-  sudo -u $name nix-channel --update || error "Failed to update nix-channel"
-  sudo -u $name nix-shell '<home-manager>' -A install || error "Failed to install home-manager"
+  sudo -iu $name nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager || error "Failed to add home-manager repo"
+  sudo -iu $name nix-channel --update || error "Failed to update nix-channel"
+  sudo -iu $name nix-shell '<home-manager>' -A install || error "Failed to install home-manager"
 
   whiptail --title "OCARBS Installation" \
     --infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
@@ -215,7 +216,7 @@ nixinstall() {
   cd $nixcfgpath 
   sudo --user $name git add .
   cd "$curpath"
-  sudo --user $name home-manager switch --flake "$nixcfgpath#$hostname" --extra-experimental-features nix-command --extra-experimental-features flakes
+  sudo -iu $name home-manager switch --flake "$nixcfgpath#$hostname" --extra-experimental-features nix-command --extra-experimental-features flakes
 }
 
 manualinstall() {
