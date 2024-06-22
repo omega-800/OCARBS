@@ -191,6 +191,7 @@ enableservice() {
 }
 
 nixinstall() {
+  [ -e /etc/bash.bashrc.backup-before-nix ] && rm /etc/bash.bashrc.backup-before-nix
   whiptail --title "OCARBS Installation" \
     --infobox "Installing NIX which is required to install and configure other programs." 8 70
   sh <(curl -L https://nixos.org/nix/install) --daemon || error "Failed to install NIX"

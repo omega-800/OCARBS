@@ -5,7 +5,7 @@
 On an Arch-based distribution as root, run the following:
 
 ```
-curl -LO https://raw.githubusercontent.com/omega-800/OCARBS/main/static/ocarbs.sh
+curl -LO https://raw.githubusercontent.com/omega-800/OCARBS/master/static/ocarbs.sh
 sh ocarbs.sh
 ```
 
