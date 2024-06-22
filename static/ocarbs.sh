@@ -72,7 +72,16 @@ keydsetupask() {
 	whiptail --title "Do you want keyd keyboard remapper" --yes-button "Yup" \
 		--no-button "Nope, I'm all good" \
 		--yesno "It is recommended to enable it as it makes your life easier. To look for what keys are modified see /home/$name/.config/keyd/default" 8 70 && wantkeyd=true
+  echo "[ids]
 
+*
+
+[main]
+
+backspace = capslock
+
+capslock = backspace
+" > /etc/keyd/default.conf
 }
 
 sysconfig() {
@@ -106,6 +115,7 @@ adduserandpass() {
 	whiptail --infobox "Adding user \"$name\"..." 7 50
 	useradd -m -g wheel -s /bin/zsh "$name" >/dev/null 2>&1 ||
 		usermod -a -G wheel "$name" && mkdir -p /home/"$name" && chown "$name":wheel /home/"$name"
+  usermod -aG "$name" kvm,networkmanagerlibvirt,docker,libvirtd,audio,storage,video,nix-users,power,tty
 	export repodir="/home/$name/.local/src"
 	mkdir -p "$repodir"
 	chown -R "$name":wheel "$(dirname "$repodir")"
@@ -202,7 +212,7 @@ nixinstall() {
   sudo --user $name git clone $nixrepo $nixcfgpath
   sudo --user $name cp -r $nixcfgpath/hosts/generic-template $hostcfg
   sed -i "s/setnewhostname/$hostname/" $hostcfg/config.nix
-
+#TODO: git add .
   sudo --user $name home-manager switch --flake "$nixcfgpath#$hostname" --extra-experimental-features nix-command --extra-experimental-features flakes
 }
 
@@ -413,6 +423,20 @@ echo "%wheel ALL=(ALL:ALL) NOPASSWD: /usr/bin/shutdown,/usr/bin/reboot,/usr/bin/
 echo "Defaults editor=/usr/bin/nvim" >/etc/sudoers.d/02-ocarbs-visudo-editor
 mkdir -p /etc/sysctl.d
 echo "kernel.dmesg_restrict = 0" > /etc/sysctl.d/dmesg.conf
+echo "    
+XDG_CACHE_HOME=$HOME/.cache
+XDG_CONFIG_HOME=$HOME/.config
+XDG_DATA_HOME=$HOME/.local/share
+XDG_STATE_HOME=$HOME/.local/state
+XDG_BIN_HOME=$HOME/.local/bin
+EDITOR=nvim
+MOZ_ENABLE_WAYLAND=1
+" >> /etc/profile
+# harden the system a bit
+[ -e hardening.sh ] || curl -LO https://raw.githubusercontent.com/omega-800/OCARBS/main/static/hardening.sh
+[ -x hardening.sh ] || chmod +x hardening.sh
+./hardening.sh $name
+# TODO: swhkd
 
 # Last message! Install complete!
 finalize
