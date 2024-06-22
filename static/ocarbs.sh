@@ -164,8 +164,6 @@ Include = /etc/pacman.d/mirrorlist-arch" >>/etc/pacman.conf
 }
 
 enableservice() {
-    ! [ -d "/etc/$1" ] && mkdir "/etc/$1"
-    ln -sf /home/$name/.config/$1/default.conf /etc/$1/default.conf
     case "$(readlink -f /sbin/init)" in
       *systemd*) 
         if [ "$2" = U ]; then
@@ -212,7 +210,10 @@ nixinstall() {
   sudo --user $name git clone $nixrepo $nixcfgpath
   sudo --user $name cp -r $nixcfgpath/hosts/generic-template $hostcfg
   sed -i "s/setnewhostname/$hostname/" $hostcfg/config.nix
-#TODO: git add .
+  curpath="$(pwd)"
+  cd $nixcfgpath 
+  sudo --user $name git add .
+  cd "$curpath"
   sudo --user $name home-manager switch --flake "$nixcfgpath#$hostname" --extra-experimental-features nix-command --extra-experimental-features flakes
 }
 
@@ -283,16 +284,18 @@ installationloop() {
 		curl -Ls "$progsfile" | sed '/^#/d' >/tmp/progs.csv
 	total=$(wc -l </tmp/progs.csv)
 	aurinstalled=$(pacman -Qqm)
-	while IFS=, read -r tag program comment; do
+	while IFS=, read -r tag service program comment; do
 		n=$((n + 1))
 		echo "$comment" | grep -q "^\".*\"$" &&
 			comment="$(echo "$comment" | sed -E "s/(^\"|\"$)//g")"
+    [ -n "$service" ] && enableservice "$program" "$service"
 		case "$tag" in
-		"A") aurinstall "$program" "$comment" ;;
-		"G") gitmakeinstall "$program" "$comment" ;;
-		"P") pipinstall "$program" "$comment" ;;
-		"S") manualinstall "$program" "$comment" ;;
-		*) maininstall "$program" "$comment" ;;
+      "A") aurinstall "$program" "$comment" ;;
+      "G") gitmakeinstall "$program" "$comment" ;;
+      "P") pipinstall "$program" "$comment" ;;
+      "S") manualinstall "$program" "$comment" ;;
+      "X") : ;;
+      *) maininstall "$program" "$comment" ;;
 		esac
 	done </tmp/progs.csv
 }
